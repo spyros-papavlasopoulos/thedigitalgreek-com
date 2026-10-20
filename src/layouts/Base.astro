@@ -146,7 +146,15 @@ const jsonLd = {
       <div
         class="mt-8 flex flex-wrap justify-between gap-4 font-mono text-meta text-muted"
       >
-        <span>© {new Date().getFullYear()} The Digital Greek · Berlin</span>
+        <span
+          >© {new Date().getFullYear()} The Digital Greek · Berlin ·{" "}
+          <a href="/impressum" class="hover:text-accent">Impressum</a> ·{" "}
+          <button
+            type="button"
+            class="cursor-pointer hover:text-accent"
+            data-consent-open>Cookies</button
+          ></span
+        >
         <Email />
         <button
           type="button"
@@ -188,19 +196,96 @@ const jsonLd = {
       })();
     </script>
 
-    <!-- Google tag (gtag.js) -->
-    <script
-      is:inline
-      async
-      src="https://www.googletagmanager.com/gtag/js?id=G-95RNTJK204"></script>
+    <!-- Consent banner: Google Analytics loads only after "Accept" (§25 TDDDG) -->
+    <div
+      data-consent
+      hidden
+      role="dialog"
+      aria-label="Analytics consent"
+      class="fixed inset-x-4 bottom-4 z-20 border border-line bg-bg p-4 font-mono text-meta md:right-8 md:left-auto md:max-w-sm"
+    >
+      <p>
+        May I use Google Analytics to count visits? It sets cookies and sends
+        data to Google. You can change your mind any time via "Cookies" in the
+        footer.
+      </p>
+      <div class="mt-4 flex gap-3">
+        <button
+          type="button"
+          data-consent-choice="yes"
+          class="cursor-pointer border border-current px-3 py-1 hover:text-accent"
+          >Accept</button
+        >
+        <button
+          type="button"
+          data-consent-choice="no"
+          class="cursor-pointer border border-current px-3 py-1 hover:text-accent"
+          >Reject</button
+        >
+      </div>
+    </div>
     <script is:inline>
-      window.dataLayer = window.dataLayer || [];
-      function gtag() {
-        dataLayer.push(arguments);
-      }
-      gtag("js", new Date());
+      (() => {
+        const ID = "G-95RNTJK204";
+        const KEY = "analytics-consent";
+        const banner = document.querySelector("[data-consent]");
+        let loaded = false;
 
-      gtag("config", "G-95RNTJK204");
+        const load = () => {
+          if (loaded) return;
+          loaded = true;
+          window.dataLayer = window.dataLayer || [];
+          window.gtag = function () {
+            dataLayer.push(arguments);
+          };
+          gtag("js", new Date());
+          gtag("config", ID);
+          const s = document.createElement("script");
+          s.async = true;
+          s.src = "https://www.googletagmanager.com/gtag/js?id=" + ID;
+          document.head.appendChild(s);
+        };
+
+        // GA sets its cookies on the root domain, so try both host forms.
+        const clear = () => {
+          const host = location.hostname.replace(/^www\./, "");
+          document.cookie.split(";").forEach((c) => {
+            const name = c.split("=")[0].trim();
+            if (!name.startsWith("_ga")) return;
+            for (const d of ["", "; domain=" + host, "; domain=." + host])
+              document.cookie = name + "=; max-age=0; path=/" + d;
+          });
+        };
+
+        let choice = null;
+        try {
+          choice = localStorage.getItem(KEY);
+        } catch (e) {}
+        if (choice === "yes") load();
+        else {
+          // Also catches cookies GA rewrote while unloading after a withdrawal.
+          clear();
+          if (choice !== "no") banner.hidden = false;
+        }
+
+        banner.addEventListener("click", (e) => {
+          const b = e.target.closest("[data-consent-choice]");
+          if (!b) return;
+          const v = b.dataset.consentChoice;
+          try {
+            localStorage.setItem(KEY, v);
+          } catch (e) {}
+          banner.hidden = true;
+          if (v === "yes") return load();
+          clear();
+          // A running GA tag would set its cookies again, so reload without it.
+          if (loaded) location.reload();
+        });
+
+        document
+          .querySelector("[data-consent-open]")
+          .addEventListener("click", () => (banner.hidden = false));
+      })();
     </script>
   </body>
 </html>
